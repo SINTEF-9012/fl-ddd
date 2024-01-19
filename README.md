@@ -1,74 +1,36 @@
-# Flower Example using TensorFlow/Keras
+# An exmaple to demonstrate the use of Federated Learning with non-IID data Flower Example using TensorFlow/Keras
 
 This introductory example to Flower uses Keras but deep knowledge of Keras is not necessarily required to run the example. However, it will help you understanding how to adapt Flower to your use-cases.
 Running this example in itself is quite easy.
 
-## Project Setup
+## Data preparation
 
-Start by cloning the example project. We prepared a single-line command that you can copy into your shell which will checkout the example for you:
+Drowsiness poses a significant challenge in various professions, where its impact can have severe consequences. Defined by feelings of sleepiness, fatigue, and reduced alertness, drowsiness compromises the ability to maintain focus, make quick decisions, and respond rapidly - all critical aspects of safe driving. In driving, drowsiness is a crucial concern due to its direct correlation with an increased risk of accidents. Insufficient or poor-quality sleep, long working hours, night shifts, and monotonous driving conditions contribute to drowsiness among drivers. Certain professions are at a higher risk of drowsiness-related incidents, particularly those involving extended hours on the road. Long-haul truck drivers, delivery professionals, and emergency service providers working irregular hours face heightened risks. Addressing drowsiness is vital for professions requiring driving to ensure safety on the roads. The implications of drowsy driving extend beyond individual performance, emphasising the need for effective strategies and technology-driven solutions to safeguard the well-being of drivers and the broader public on the road.
 
-```shell
-git clone --depth=1 https://github.com/adap/flower.git && mv flower/examples/quickstart-tensorflow . && rm -rf flower && cd quickstart-tensorflow
-```
+1. Download the Drowsiness Detection Dataset (DDD) from [Kaggle](https://www.kaggle.com/datasets/ismailnasri20/driver-drowsiness-dataset-ddd/data)
+2. Extract the DDD dataset into a folder (e.g. "/home/user/DDD/ALL"). This folder should contain two classes - "Drowsy" and "Not Drowsy".
+3. Manually copy individual subjects to separate folders (e.g. "/home/user/ddd/A" for subject A, "/home/user/ddd/B" for subject B, and so on). All these folders should also contain two classes - "Drowsy" and "Not Drowsy".
 
-This will create a new directory called `quickstart-tensorflow` containing the following files:
+## Centralised ML
 
-```shell
--- pyproject.toml
--- requirements.txt
--- client.py
--- server.py
--- README.md
-```
-
-### Installing Dependencies
-
-Project dependencies (such as `tensorflow` and `flwr`) are defined in `pyproject.toml` and `requirements.txt`. We recommend [Poetry](https://python-poetry.org/docs/) to install those dependencies and manage your virtual environment ([Poetry installation](https://python-poetry.org/docs/#installation)) or [pip](https://pip.pypa.io/en/latest/development/), but feel free to use a different way of installing dependencies and managing virtual environments if you have other preferences.
-
-#### Poetry
+Run the centralised ML training (100 epochs) using the following command:
 
 ```shell
-poetry install
-poetry shell
+python3 center.py
 ```
 
-Poetry will install all your dependencies in a newly created virtual environment. To verify that everything works correctly you can run the following command:
+## Federated Learning
+
+You can run a bash script which will start the FL server and 28 separate clients:
 
 ```shell
-poetry run python3 -c "import flwr"
+bash ./run.sh
 ```
 
-If you don't see any errors you're good to go!
+Alternatively, you can launch the FL server and 28 clients in separate terminals.
 
-#### pip
+### Logs
 
-Write the command below in your terminal to install the dependencies according to the configuration file requirements.txt.
+You can inspect the logs in the "logs" folder to track the learning progress and the resulting model performance
 
-```shell
-pip install -r requirements.txt
-```
 
-## Run Federated Learning with TensorFlow/Keras and Flower
-
-Afterwards you are ready to start the Flower server as well as the clients. You can simply start the server in a terminal as follows:
-
-```shell
-poetry run python3 server.py
-```
-
-Now you are ready to start the Flower clients which will participate in the learning. To do so simply open two more terminals and run the following command in each:
-
-```shell
-poetry run python3 client.py
-```
-
-Alternatively you can run all of it in one shell as follows:
-
-```shell
-poetry run python3 server.py &
-poetry run python3 client.py &
-poetry run python3 client.py
-```
-
-You will see that Keras is starting a federated training. Have a look at the [code](https://github.com/adap/flower/tree/main/examples/quickstart-tensorflow) for a detailed explanation. You can add `steps_per_epoch=3` to `model.fit()` if you just want to evaluate that everything works without having to wait for the client-side training to finish (this will save you a lot of time during development).
-# ddd_fl
