@@ -1,5 +1,11 @@
-from typing import List, Tuple, Dict, Optional
 import os
+
+# Make TensorFlow log less verbose
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+# Do not consume all GPU at once
+os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "True"
+
+from typing import List, Tuple, Dict, Optional
 
 import flwr as fl
 from flwr.common import Metrics
@@ -8,9 +14,6 @@ from tensorflow import keras
 from keras.preprocessing.image import ImageDataGenerator as data_augment
 from keras.models import load_model
 from keras.layers import Input
-
-# Make TensorFlow log less verbose
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
 #data augmetation
 data_generate_training = data_augment (rescale=1./255,
@@ -22,14 +25,15 @@ data_generate_training = data_augment (rescale=1./255,
                               height_shift_range = 0.2,
                               validation_split = 0.15)
 
+# the path should be something like "/home/user/ddd/"
+datadir= "REPLACE_WITH_THE_PATH_WHERE_YOU_EXTRACTED_THE_DDD_DATASET"
+
 #data preprocessing and augmentation
-traind = data_generate_training.flow_from_directory("data/ALL",
+traind = data_generate_training.flow_from_directory(datadir,
                                           target_size = (227, 227),
                                           seed = 123,
                                           batch_size = 32,
                                           subset = "training")
-
-#data_generate_test = data_augment(rescale = 1./255)
 
 #Building Model
 CNNmodel = keras.Sequential([
@@ -55,10 +59,12 @@ CNNmodel = keras.Sequential([
     keras.layers.Dense(2, activation = 'sigmoid')
 ])
 
+#Compile model
 CNNmodel.compile(optimizer='adam',
               loss="binary_crossentropy",
-              metrics=['accuracy'])
+              metrics=['accuracy', keras.metrics.Precision(), keras.metrics.Recall()])
 
+#Define aggregated evaluation fucntion
 def get_evaluate_fn(model):
     """Return an evaluation function for server-side evaluation."""
     testd = data_generate_training.flow_from_directory("data/ALL",
@@ -80,46 +86,23 @@ def get_evaluate_fn(model):
 
     return evaluate
 
-def fit_config(server_round: int):
-    """Return training configuration dict for each round.
-
-    Keep batch size fixed at 32, perform two rounds of training with one local epoch,
-    increase to two local epochs afterwards.
-    """
-    config = {
-        "batch_size": 32,
-        "local_epochs": 1 if server_round < 4 else 2,
-    }
-    return config
-
-def evaluate_config(server_round: int):
-    """Return evaluation configuration dict for each round.
-
-    Perform five local evaluation steps on each client (i.e., use five batches) during
-    rounds one to three, then increase to ten local evaluation steps.
-    """
-    val_steps = 5 if server_round < 4 else 10
-    return {"val_steps": val_steps}
-
-# Define metric aggregation function
+# Define metric aggregation function - Weighted Average
 def weighted_average(metrics: List[Tuple[int, Metrics]]) -> Metrics:
-    # Multiply accuracy of each client by number of examples used
+    # Multiply accuracy, precision and recall of each client by number of examples used
     accuracies = [num_examples * m["accuracy"] for num_examples, m in metrics]
+    precisions = [num_examples * m["precision"] for num_examples, m in metrics]
+    recalls = [num_examples * m["recall"] for num_examples, m in metrics]
     examples = [num_examples for num_examples, _ in metrics]
 
     # Aggregate and return custom metric (weighted average)
-    return {"accuracy": sum(accuracies) / sum(examples)}
+    return {"accuracy": sum(accuracies) / sum(examples), "precision": sum(precisions) / sum(examples), "recall": sum(recalls) / sum(examples)}
 
 # Create strategy
 strategy = fl.server.strategy.FedAvg(
-    #fraction_fit=0.3,
-    #fraction_evaluate=0.2,
     min_fit_clients=28,
     min_evaluate_clients=28,
     min_available_clients=28,
     evaluate_fn=get_evaluate_fn(CNNmodel),
-    #on_fit_config_fn=fit_config,
-    #on_evaluate_config_fn=evaluate_config,
     initial_parameters=fl.common.ndarrays_to_parameters(CNNmodel.get_weights()),
     evaluate_metrics_aggregation_fn=weighted_average
 )
